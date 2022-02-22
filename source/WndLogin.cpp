@@ -294,7 +294,7 @@ WndLogin::MessageReceived( BMessage* msg )
 //		msg->AddString( "password", myPassCtrlPassword->actualText() );
 	
 			be_app->PostMessage( msg, NULL );
-			Quit();
+			//Quit();
 			break;
 		}
 	

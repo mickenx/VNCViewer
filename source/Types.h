@@ -54,7 +54,10 @@ typedef unsigned long	ulong;		// unsigned long integer quantity
 #undef false
 enum bool{ true = 1, false = 0 };
 #endif
-
+#define Swap32(l) (((l) >> 24) | \
+		   (((l) & 0x00ff0000) >> 8)  | \
+		   (((l) & 0x0000ff00) << 8)  | \
+		   ((l) << 24))
 /*
 **	swap a 32 bit quantity
 */

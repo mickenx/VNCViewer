@@ -52,7 +52,7 @@ VNCOptions::VNCOptions()
 	m_FullScreen = false;
 	m_Use8Bit = false;
 
-	m_PreferredEncoding = rfbEncodingHextile;
+	m_PreferredEncoding = 0; //rfbEncodingHextile;
 
 	m_SwapMouse = false;
 	m_Emul3Buttons = true;
@@ -81,7 +81,7 @@ VNCOptions::VNCOptions()
 	m_connectionSpecified = false;
 	m_configSpecified = false;
 	m_configFilename[0] = '\0';
-	m_listening = false;
+	m_listening = true;
 	m_restricted = false;
 }
 
@@ -122,7 +122,7 @@ VNCOptions& VNCOptions::operator=(VNCOptions& s)
 	m_configSpecified   = s.m_configSpecified;
 	strcpy(m_configFilename, s.m_configFilename);
 
-	m_listening			= s.m_listening;
+	m_listening			= true; //s.m_listening;
 	m_restricted		= s.m_restricted;
 	
 	return *this;
@@ -441,7 +441,7 @@ void VNCOptions::Load(char *fname)
 		sprintf(buf, "use_encoding_%d", i);
 		m_UseEnc[i] =   readInt(buf, m_UseEnc[i], fname) != 0;
 	}
-	m_PreferredEncoding =	readInt("preferred_encoding", m_PreferredEncoding,	fname);
+	m_PreferredEncoding = 0 ;//	readInt("preferred_encoding", m_PreferredEncoding,	fname);
 	m_restricted =			readInt("restricted",		m_restricted,	fname) != 0 ;
 	m_ViewOnly =			readInt("viewonly",			m_ViewOnly,		fname) != 0;
 	m_FullScreen =			readInt("fullscreen",		m_FullScreen,	fname) != 0;

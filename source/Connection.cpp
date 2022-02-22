@@ -28,6 +28,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <cerrno>
 #include <Beep.h>
 #include <Screen.h>
 #include <View.h>
@@ -39,7 +40,7 @@
 #include "AuthDialog.h"
 
 //#define	TIME_SCREENUPDATE
-
+#define __INTEL__ 1
 #define MAXPWLEN			8					// maximal password length
 #define CHALLENGESIZE		16					// authentication challenge size
 
@@ -122,6 +123,7 @@ Connection::Connect( const char* hostname, int port, char* passwd )
 			// update full screen for the first time
 			SendFullFramebufferUpdateRequest();
 			result = true;
+			//mySocket.ListenAtTcpPort(5900);
 		}
 		else
 		{
@@ -358,8 +360,8 @@ Connection::Init( char* passwd )
 	if (!mySocket.ReadExact( (char*)&myServerInit, sz_rfbServerInitMsg ))
 		return false;
 
-	myServerInit.framebufferWidth	= Swap16IfLE( myServerInit.framebufferWidth );
-	myServerInit.framebufferHeight	= Swap16IfLE( myServerInit.framebufferHeight );
+	myServerInit.framebufferWidth	= Swap16IfLE(myServerInit.framebufferWidth );
+	myServerInit.framebufferHeight	= Swap16IfLE(myServerInit.framebufferHeight );
 	myServerInit.format.redMax		= Swap16IfLE( myServerInit.format.redMax );
 	myServerInit.format.greenMax	= Swap16IfLE( myServerInit.format.greenMax );
 	myServerInit.format.blueMax		= Swap16IfLE( myServerInit.format.blueMax );
@@ -442,21 +444,22 @@ void
 Connection::SetPixelFormat( const rfbPixelFormat* format )
 {
 	rfbSetPixelFormatMsg	spf;
-
+	fprintf( stderr, "1\n" );
 	spf.type				= rfbSetPixelFormat;
 	spf.format				= *format;
 	spf.format.redMax		= Swap16IfLE( spf.format.redMax );
 	spf.format.greenMax		= Swap16IfLE( spf.format.greenMax );
 	spf.format.blueMax		= Swap16IfLE( spf.format.blueMax );
-#if defined(__POWERPC__)
+/*#if defined(__POWERPC__)
 	spf.format.bigEndian	= 1;
-#elif defined(__INTEL__)
+#elif defined(__INTEL__)*/
 	spf.format.bigEndian	= 0;
-#else
+/*#else
 #error	Endianess not defined!
 #endif
-
+*/
 	mySocket.WriteExact( (char*)&spf, sz_rfbSetPixelFormatMsg );
+	fprintf( stderr, "2\n" );
 }
 
 /****
@@ -530,17 +533,17 @@ Connection::SetFormatAndEncodings( void )
 
 	SetPixelFormat( &myFormat );
 
-#if 0
+#if 1
 	// set encodings
 	se->type		= rfbSetEncodings;
 	se->nEncodings	= 0;
 
-	for (i = 0 ; i < App::GetApp()->GetExplicitEnc() ; i++)
-		encs[se->nEncodings++] = Swap32IfLE( App::GetApp()->GetEncodings()[i] );
+	//for (i = 0 ; i < App::GetApp()->GetExplicitEnc() ; i++)
+	//	encs[se->nEncodings++] = Swap32IfLE( App::GetApp()->GetEncodings()[i] );
 
-	if (mySocket.SameMachine())
+	//if (mySocket.SameMachine())
 		encs[se->nEncodings++] = Swap32IfLE( rfbEncodingRaw );
-
+#if 0
 	if (App::GetApp()->AddCopyRect())
 		encs[se->nEncodings++] = Swap32IfLE( rfbEncodingCopyRect );
 
@@ -552,9 +555,10 @@ Connection::SetFormatAndEncodings( void )
 
 	if (App::GetApp()->AddRRE())
 		encs[se->nEncodings++] = Swap32IfLE( rfbEncodingRRE );
-
+#endif
 	len = sz_rfbSetEncodingsMsg + se->nEncodings * 4;
-
+	VNCOptions* m_opts = ((App *)be_app)->GetOptions();
+	m_opts->m_PreferredEncoding=rfbEncodingRaw;
 	se->nEncodings = Swap16IfLE( se->nEncodings );
 
 	if (!mySocket.WriteExact( buf, len ))
@@ -564,14 +568,16 @@ Connection::SetFormatAndEncodings( void )
 #endif
     	// Put the preferred encoding first, and change it if the
 	// preferred encoding is not actually usable.
-
+#if 0
 	VNCOptions* m_opts = ((App *)be_app)->GetOptions();
 	
  	se->type = rfbSetEncodings;
     se->nEncodings = 0;
-   
+    printf("LAST %d\n",LASTENCODING);
+
    	for ( i = LASTENCODING; i >= rfbEncodingRaw; i--)
 	{
+		printf("i %d\n",i);
 		if (m_opts->m_PreferredEncoding == i) {
 			if (m_opts->m_UseEnc[i]) {
 				encs[se->nEncodings++] = Swap32IfLE(i);
@@ -589,6 +595,7 @@ Connection::SetFormatAndEncodings( void )
 		if ( (m_opts->m_PreferredEncoding != i) &&
 			 (m_opts->m_UseEnc[i]))
 		{
+			printf("i2: %d\n",i);
 			encs[se->nEncodings++] = Swap32IfLE(i);
 		}
 	}
@@ -598,8 +605,9 @@ Connection::SetFormatAndEncodings( void )
     se->nEncodings = Swap16IfLE(se->nEncodings);
 	
     mySocket.WriteExact((char *) buf, len);
-    	
+    printf("buf 0x%x\n",*buf);	
 	return true;
+#endif
 }
 
 // mmu
@@ -647,12 +655,23 @@ void
 Connection::SendKeyEvent( CARD32 key, bool down )
 {
 	rfbKeyEventMsg ke;
-
-	ke.type	= rfbKeyEvent;
-	ke.down	= down ? 1 : 0;
-	ke.key	= Swap32IfLE( key );
-
-	mySocket.WriteExact( (char*)&ke, sz_rfbKeyEventMsg );
+	rfbKeyEventMsg *kp = &ke;
+	u32 * kpr;
+	memset(kp,0,8);
+	//memset((char*)kp,1,8);
+	kp->type	= rfbKeyEvent;
+	kp->down	= down ? 1 : 0;
+	kp->key	= Swap32IfLE( key );
+	kpr = &ke.key;
+	//*kpr=*kpr>>24;
+	memcpy((char*)kp+2+1+1,(char*)kpr,4);
+	printf("sendkeyevent 0x%x %d size %d\n",kp->key,kp->key,sz_rfbKeyEventMsg);
+	printf("m1a: 0x%x\n",*((char*)kp+1+1));
+	//*((char*)kp+1+1+3)=(u32)Swap32IfLE( key );
+	printf("m1b: 0x%x\n",*((char*)kp+1+1+2));
+	mySocket.WriteExact( (char*)kp, sz_rfbKeyEventMsg );
+	perror("send");
+	errno=0;
 }
 
 /*****
@@ -727,6 +746,7 @@ Connection::MessageReceived( BMessage* msg )
 #if defined(DEBUG_VERBOSE)
 			printf( "$Exit MessageReceived true\n" );
 #endif
+			//mySocket.AcceptTcpConnection();
 			break;
 		}
 		myWindow->Unlock();
@@ -783,14 +803,17 @@ Connection::DoRFBMessage( void )
 	{
 		assert( bytes == 1 );
 		mySocket.PutBack( msgType );
-
+		//printf("msgType: %d\n",msgType);
 		switch (msgType)
 		{
+		
+		
 		case rfbFramebufferUpdate:
+			//printf("Update framebuffer\n");
 #if defined(TIME_SCREENUPDATE)
-			BStopWatch*	watch = new BStopWatch("ScreenUpdate");
+			//BStopWatch*	watch = new BStopWatch("ScreenUpdate");
 			myWindow->ScreenUpdate();
-			delete watch;
+			//delete watch;
 			SendFullFramebufferUpdateRequest();
 #else
 			myWindow->ScreenUpdate();
@@ -809,6 +832,7 @@ Connection::DoRFBMessage( void )
 			else if (myAutoUpdate) // XXX: mmu
 				SendIncrementalFramebufferUpdateRequest();
 #endif
+			//SendFullFramebufferUpdateRequest();
 			break;
 
 		case rfbSetColourMapEntries:
@@ -829,20 +853,21 @@ Connection::DoRFBMessage( void )
 			beep();
 			break;
 		  }
-
 		//$$$ ??? never received one of these messages, anyone knows why?
 		case rfbServerCutText:
-			myWindow->ServerCutText();
+			//myWindow->ServerCutText();
 			break;
 
 		default:
-			fprintf( stderr, "%s: Unhandled message type %d received!\n", App::GetApp()->GetName(), msgType );
+			//fprintf( stderr, "%s: Unhandled message type %d received!\n", App::GetApp()->GetName(), msgType );
 			App::GetApp()->ShowCursor();
 			//App::Alert( "Unhandled message type received!" );
 			myInsideHandler = false;
 #if defined(DEBUG_VERBOSE)
 			printf( "$Exit DoRFBMessage false\n" );
 #endif
+			//SendFullFramebufferUpdateRequest();
+			break;
 			return false;
 		}
 	}

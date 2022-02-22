@@ -64,8 +64,8 @@ App::App( void )
 	  myAddCoRRE(false),
 	  myAddRRE(false),
 	  myIsBatchMode(false),
-//	  myIsLittleEndian(true),
-	  myIsListenSpecified(false),
+	  //myIsLittleEndian(true),
+	  myIsListenSpecified(true),
 	  myIsShareDesktop(false),
 	  myIsUse8bit(false),
 	  myExplicitEnc(0)

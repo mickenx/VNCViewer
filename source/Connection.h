@@ -34,16 +34,16 @@
 #include "Socket.h"
 #include "WndConnection.h"
 
-#if defined(__POWERPC__)
+/*#if defined(__POWERPC__)
 #define Swap16IfLE(s)	s
 #define Swap32IfLE(l)	l
-#elif defined(__INTEL__)
+#elif defined(__INTEL__)*/
 #define Swap16IfLE(s)	swap16( s )
 #define Swap32IfLE(l)	swap32( l )
-#else
+/*#else
 #error	Endianess not defined!
 #endif
-
+*/
 /*
 **	defined in this header file
 */

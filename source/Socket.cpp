@@ -40,9 +40,9 @@
 //# include <net/socket.h>
 #else
 # include <netdb.h>
-//# include <sys/socket.h>
+# include <sys/socket.h>
 # include <arpa/inet.h>
-# define closesocket close
+//# define closesocket close
 #endif
 
 #ifndef __HAIKU__
@@ -84,12 +84,12 @@ Socket::Close( void )
 {
 	if (mySocket != -1)
 	{
-		::closesocket( mySocket );
+		//closesocket( mySocket );
 		mySocket = -1;
 	}
 	if (myListenSocket != -1)
 	{
-		::closesocket( myListenSocket );
+//		closesocket( myListenSocket );
 		myListenSocket = -1;
 	}
 }
@@ -152,7 +152,8 @@ Socket::ReadExact( char *buf, int n )
 {
 	int i = 0;
 	int j;
-
+	//int one = 0;
+	
 	if (myBytesInQueue > 0)
 	{
 		assert( myBytesInQueue <= MAX_QUEUE );
@@ -192,7 +193,8 @@ Socket::WriteExact( char *buf, int n )
 {
     int i = 0;
     int j;
-
+	u32 m = (u32)*(buf+1+1+2);
+	//printf("m=: 0x%x\n",*(buf+1+1+2));
     while (i < n)
     {
 		j = ::send( mySocket, buf + i, (n - i), 0 );
@@ -226,7 +228,7 @@ Socket::ConnectToTcpAddr( uint host, int port )
 	addr.sin_family			= AF_INET;
 	addr.sin_port			= htons( port );
 	addr.sin_addr.s_addr	= host;
-
+	printf("connect port: %d\n",port);
 	mySocket = ::socket( AF_INET, SOCK_STREAM, 0 );
 	if (mySocket < 0)
 	{
@@ -239,11 +241,11 @@ Socket::ConnectToTcpAddr( uint host, int port )
 	{
 		fprintf( stderr, App::GetApp()->GetName() );
 		perror( ": ConnectToTcpAddr: connect" );
-		::closesocket( mySocket );
+		//::closesocket( mySocket );
 		mySocket = -1;
 		return -1;
 	}
-
+	
 #if 0
 	// no use on the mySocket
 	if (::setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (char *)&one, sizeof(one) ) < 0)
@@ -267,7 +269,7 @@ Socket::ListenAtTcpPort( int port )
 {
 	struct sockaddr_in addr;
 	int	one = 1;
-	
+	printf("listen1 port : %d\n",port);
 	addr.sin_family			= AF_INET;
 	addr.sin_port			= htons( port );
 	addr.sin_addr.s_addr	= INADDR_ANY;
@@ -284,7 +286,7 @@ Socket::ListenAtTcpPort( int port )
 	{
 		fprintf( stderr, App::GetApp()->GetName() );
 		perror( ": ListenAtTcpPort: setsockopt" );
-		::closesocket( myListenSocket );
+		//::closesocket( myListenSocket );
 		myListenSocket = -1;
 		return -1;
 	}
@@ -293,7 +295,7 @@ Socket::ListenAtTcpPort( int port )
 	{
 		fprintf( stderr,App::GetApp()->GetName() );
 		perror( ": ListenAtTcpPort: bind" );
-		::closesocket( myListenSocket );
+		//::closesocket( myListenSocket );
 		myListenSocket = -1;
 		return -1;
 	}
@@ -302,11 +304,11 @@ Socket::ListenAtTcpPort( int port )
 	{
 		fprintf( stderr, App::GetApp()->GetName() );
 		perror( ": ListenAtTcpPort: listen" );
-		::closesocket( myListenSocket );
+		//::closesocket( myListenSocket );
 		myListenSocket = -1;
 		return -1;
 	}
-
+	printf("listen\n");
 	return myListenSocket;
 }
 
@@ -320,7 +322,7 @@ Socket::AcceptTcpConnection( void )
     struct sockaddr_in addr;
     socklen_t	addrlen	= sizeof(addr);
     int	one		= 1;
-
+	printf("accept\n");
 	mySocket = ::accept( myListenSocket, (struct sockaddr *) &addr, &addrlen );
 	if (mySocket < 0)
 	{

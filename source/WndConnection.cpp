@@ -39,6 +39,7 @@
 #include <UTF8.h>
 #include <View.h>
 #include <Window.h>
+#include <cerrno>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -97,6 +98,7 @@ inline rgb_color get_color( uchar r, uchar g, uchar b )
 
 // shortcut to set one pixel...
 #define SetPixel(x,y)	myViewOff->FillRect( BRect(x,y,x,y) )
+//#define SetPixel(x,y)	FillRect( BRect(x,y,x,y) )
 
 /*****************************************************************************
 **	WndConnection
@@ -300,7 +302,8 @@ WndConnection::Create( Connection* conn )
  	BRect	rect;
  	float	width	= si->framebufferWidth;
  	float	height	= si->framebufferHeight;
-
+	//si->framebufferWidth=800;
+	//si->framebufferHeight=600;
 	// center window
 	rect.SetLeftTop( BPoint( (rectScreen.Width() - width) / 2, (rectScreen.Height() - height) / 2 ) );
 	rect.SetRightBottom( BPoint( rect.left + width - 1, rect.top + height - 1) );
@@ -892,7 +895,7 @@ gotone:
 	case B_FUNCTION_KEY:	
 	{
 		int32 k;
-		Window()->CurrentMessage()->FindInt32( "key", (long*)&k );
+		Window()->CurrentMessage()->FindInt32( "key", (int32*)&k );
 	
 			switch (k)
 		{
@@ -941,7 +944,7 @@ gotone:
 	case B_FUNCTION_KEY:
 	  {
 		int32 k;
-		Window()->CurrentMessage()->FindInt32( "key", (long*)&k );
+		Window()->CurrentMessage()->FindInt32( "key", (int32*)&k );
 		switch (k)
 		{
 		case B_F1_KEY:		key = XK_F1; break;
@@ -1117,7 +1120,7 @@ ViewConnection::SendMouse( BPoint point )
 	
 	(void)SendModifier( &dummy, 1 );
 
-	Window()->CurrentMessage()->FindInt32( "buttons", (long*)&buttons ); 
+	Window()->CurrentMessage()->FindInt32( "buttons", (int32*)&buttons ); 
 
 	if (App::GetApp()->IsSwapMouse())
 	{
@@ -1161,7 +1164,7 @@ ViewConnection::MouseDown( BPoint point )
 
 	// not the elegant way for pasting, but it works
 	uint32	buttons;
-	Window()->CurrentMessage()->FindInt32( "buttons", (long*)&buttons ); 
+	Window()->CurrentMessage()->FindInt32( "buttons", (int32*)&buttons ); 
 #if 0
 //$$$ why the hell doesn't this work? it messes with the whole server clipboard...
 	if (buttons & (App::GetApp()->IsSwapMouse() ? B_TERTIARY_MOUSE_BUTTON : B_SECONDARY_MOUSE_BUTTON))
@@ -1290,13 +1293,14 @@ ViewConnection::ScreenUpdate( void )
 #if defined(DEBUG_VERBOSE)
 		printf( "$ScreenUpdate: ReadExact %s; rectangle %d\n", ok ? "OK" : "ERROR", i );
 #endif
-
+#if 1
 		surh.r.x		= Swap16IfLE( surh.r.x );
 		surh.r.y		= Swap16IfLE( surh.r.y );
 		surh.r.w		= Swap16IfLE( surh.r.w );
 		surh.r.h		= Swap16IfLE( surh.r.h );
+#endif
 		surh.encoding	= Swap32IfLE( surh.encoding );
-
+		//surh.encoding	= surh.encoding;
 		switch (surh.encoding)
 		{
 		case rfbEncodingRaw:
@@ -1349,6 +1353,7 @@ ViewConnection::ScreenUpdate( void )
 			break;
 			
 		default:
+			
 #if defined(DEBUG_VERBOSE)
 			printf( "$ScreenUpdate: UNKNOWN ENCODING %08lX!\n", surh.encoding );
 #endif
@@ -1364,6 +1369,7 @@ ViewConnection::ScreenUpdate( void )
 		{
 			if (fullregion == NULL)
 			{
+				printf("nofull\n");
 				fullregion = new BRegion();
 				fullregion->Set( BRect(
 					surh.r.x - hScrollPos, surh.r.y - vScrollPos,
@@ -1373,6 +1379,7 @@ ViewConnection::ScreenUpdate( void )
 			}
 			else
 			{
+				printf("full region\n");
 				fullregion->Include( BRect(
 					surh.r.x - hScrollPos, surh.r.y - vScrollPos,
 					surh.r.x - hScrollPos + surh.r.w, 
@@ -1383,22 +1390,35 @@ ViewConnection::ScreenUpdate( void )
 		// or we do it for each rectangle
 		else
 		{
+			//printf("rect\n");
 			BRect rect;
 			rect.left	= surh.r.x - hScrollPos;
 			rect.top	= surh.r.y - vScrollPos;
 			rect.right	= rect.left+surh.r.w;
 			rect.bottom	= rect.top+surh.r.h;
+	/*		myViewOff->Sync();
 			myViewOff->Invalidate( rect );
-			Invalidate( rect );
+			myViewOff->Invalidate(); 
+			Sync();
+			Invalidate( rect );*/
+			//Invalidate( rect );
+			
 		}
+	fullregion = new BRegion();
+				fullregion->Set( BRect(
+					surh.r.x - hScrollPos, surh.r.y - vScrollPos,
+					surh.r.x - hScrollPos + surh.r.w, 
+					surh.r.y - vScrollPos + surh.r.h )
+				);
 	}
-bailout:;
-	if (App::GetApp()->IsBatchMode())
-	{
-		Invalidate( fullregion->Frame() );
+	Invalidate();
+//	if (App::GetApp()->IsBatchMode())
+	//{
+		
+		//Invalidate( fullregion->Frame() );
 		delete fullregion;
-	}
-
+	//}
+bailout:;
 	myViewOff->SetHighColor( c );
 
 	myBitmap->Unlock();
@@ -1535,27 +1555,36 @@ ViewConnection::UpdateFormat( const rfbPixelFormat* format )
 		
 #define SETPIXELS(bpp, x, y, w, h)									\
 	{																\
-		CARD##bpp *p = (CARD##bpp *) myNetBuf;						\
+		char *p = (char *) myNetBuf;						\
 		for (int k = y; k < y+h; k++) {								\
-			for (int j = x; j < x+w; j++) {							\
-					SETHIGHCOLOR_FROM_PIXEL##bpp##_ADDRESS(p);		\
+			for (int j = x; j < x+(w); j++) {							\
+			SETHIGHCOLOR_FROM_PIXEL##bpp##_ADDRESS((int32*) p);		\
 					SetPixel(j,k);									\
-					p++;											\
+					p+=4;\
 			}														\
 		}															\
 	}
  
 #endif	 
-
+/*
+SETHIGHCOLOR_FROM_PIXEL##bpp##_ADDRESS(p);	
+p++;	
+CARD##bpp *p = (CARD##bpp *) myNetBuf										\	\
+*/
 void
 ViewConnection::RawRect(rfbFramebufferUpdateRectHeader *pfburh )
 {
 	uint numpixels = pfburh->r.w * pfburh->r.h;
     // this assumes at least one byte per pixel. Naughty.
-	uint numbytes = numpixels * minPixelBytes;
+	uint numbytes = (numpixels * minPixelBytes);
 	// Read in the whole thing
     CheckBufferSize( numbytes );
+   // printf("numbytes: %d\n",numbytes);
+    memset(myNetBuf,0,numbytes);
 	myConnection->GetSocket()->ReadExact( myNetBuf, numbytes );
+	//perror("read");
+	errno=0;
+	//printf("x: %d y: %d w: %d h: %d\n",pfburh->r.x, pfburh->r.y, pfburh->r.w, pfburh->r.h);
 
 	// This big switch is untidy but fast
 	switch (myBitsPerPixel)
